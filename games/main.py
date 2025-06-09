@@ -7,17 +7,10 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QWidget, QFrame,
     QStackedWidget, QListWidget, QListWidgetItem,
-    QTextBrowser, QSlider, QSplitter, QDialog
+    QTextBrowser, QSlider, QSplitter, QDialog, QStyle
 )
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from games.auth_dialog import AuthDialog
-from PyQt5.QtWidgets import QSlider, QStyle
-
-def keyPressEvent(self, event):
-    if event.key() == Qt.Key_Escape:
-        QApplication.quit()
-    else:
-        super().keyPressEvent(event)
 
 def ms_to_mmss(ms: int) -> str:
     s = ms // 1000
@@ -40,11 +33,10 @@ class ClickableSlider(QSlider):
             self.sliderMoved.emit(val)
         super().mousePressEvent(event)
 
-
 class MainWindow(QMainWindow):
     def __init__(self, username):
         super().__init__()
-        self.showFullScreen() 
+        self.showFullScreen()
         self.setWindowTitle("🎵 Music Quest")
         self.resize(1120, 720)
 
@@ -79,7 +71,6 @@ class MainWindow(QMainWindow):
         exit_btn.clicked.connect(QApplication.quit)
         hdr_l.addWidget(exit_btn)
 
-
         # ── SIDEBAR ──
         sidebar = QFrame(objectName="sidebar")
         sb_l = QVBoxLayout(sidebar)
@@ -112,7 +103,7 @@ class MainWindow(QMainWindow):
         self.list_widget.model().rowsMoved.connect(self._on_rows_moved)
         self._load_playlist()
         self.list_widget.itemClicked.connect(self.on_item_clicked)
-        self.list_widget.setMinimumWidth(100) 
+        self.list_widget.setMinimumWidth(100)
         card_l.addWidget(self.list_widget)
         splitter.addWidget(track_card)
 
@@ -123,30 +114,42 @@ class MainWindow(QMainWindow):
         self.lyrics = QTextBrowser(objectName="lyrics")
         rcard_l.addWidget(self.lyrics, 5)
 
-        # Controls: 한 줄 배치
+        # --- Controls: 한 줄 배치 ---
         ctrl_row = QHBoxLayout()
         btns = {}
+
+        # 컨트롤 버튼 딕셔너리 생성
         for name, ico in [
-              ('shuffle', '🔀'), ('prev', '⏮️'), ('play', '▶️'),
-              ('pause', '⏸️'), ('next', '⏭️'), ('repeat', '🔁')
-              ]:
+            ('shuffle', '🔀'), ('prev', '⏮️'), ('next', '⏭️'), ('repeat', '🔁')
+        ]:
             btn = QPushButton(ico)
             btn.setObjectName(name)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setFixedSize(54, 54)   # <-- 반드시 한 줄로 크기 통일!
+            btn.setFixedSize(54, 54)
             btn.setFont(QFont("Arial", 26, QFont.Bold))
             btns[name] = btn
-            ctrl_row.addWidget(btn)	
 
-        (self.btn_shuffle, self.btn_prev, self.btn_play,
-         self.btn_pause, self.btn_next, self.btn_repeat) = (
-            btns['shuffle'], btns['prev'], btns['play'],
-            btns['pause'], btns['next'], btns['repeat']
-        )
-        self.btn_play.clicked.connect(self.player_play)
-        self.btn_pause.clicked.connect(self.player_pause)
-        self.btn_next.clicked.connect(self.next_track)
+        # ▶️⏸️ 토글 버튼 생성
+        self.btn_playpause = QPushButton("▶️")
+        self.btn_playpause.setObjectName("playpause")
+        self.btn_playpause.setCursor(Qt.PointingHandCursor)
+        self.btn_playpause.setFixedSize(54, 54)
+        self.btn_playpause.setFont(QFont("Arial", 26, QFont.Bold))
+        self.btn_playpause.clicked.connect(self.toggle_play_pause)
+
+        # 컨트롤러 버튼 순서! (중앙에 플레이/정지 토글)
+        ctrl_row.addWidget(btns['shuffle'])
+        ctrl_row.addWidget(btns['prev'])
+        ctrl_row.addWidget(self.btn_playpause)
+        ctrl_row.addWidget(btns['next'])
+        ctrl_row.addWidget(btns['repeat'])
+
+        self.btn_prev = btns['prev']
+        self.btn_next = btns['next']
+        self.btn_shuffle = btns['shuffle']
+        self.btn_repeat = btns['repeat']
         self.btn_prev.clicked.connect(self.prev_track)
+        self.btn_next.clicked.connect(self.next_track)
         self.btn_shuffle.clicked.connect(self.toggle_shuffle)
         self.btn_repeat.clicked.connect(self.toggle_repeat)
 
@@ -204,6 +207,7 @@ class MainWindow(QMainWindow):
         self.player.positionChanged.connect(self._on_position_changed)
         self.player.durationChanged.connect(self._on_duration_changed)
         self.player.mediaStatusChanged.connect(self._on_media_status)
+        self.player.stateChanged.connect(self._on_player_state_changed)
 
     def _load_playlist(self):
         music_dir = os.path.join(os.path.dirname(__file__), '..', 'assets', 'music')
@@ -247,14 +251,26 @@ class MainWindow(QMainWindow):
             dur = self.player.duration()
             pos = self.player.position() + 10000
             self.player.setPosition(min(pos, dur))
+        elif event.key() == Qt.Key_Space:
+            self.toggle_play_pause()
+        elif event.key() == Qt.Key_Escape:
+            QApplication.quit()
         else:
             super().keyPressEvent(event)
 
-    def player_play(self):
-        self.player.play()
+    # ▶️⏸️ 토글
+    def toggle_play_pause(self):
+        if self.player.state() == QMediaPlayer.PlayingState:
+            self.player.pause()
+        else:
+            self.player.play()
 
-    def player_pause(self):
-        self.player.pause()
+    # 플레이어 상태 바뀔 때마다 버튼 아이콘 자동 갱신
+    def _on_player_state_changed(self, state):
+        if state == QMediaPlayer.PlayingState:
+            self.btn_playpause.setText("⏸️")
+        else:
+            self.btn_playpause.setText("▶️")
 
     def next_track(self):
         if self.shuffle:
@@ -323,18 +339,11 @@ class MainWindow(QMainWindow):
         else:
             QApplication.quit()
 
-
-
-
-
 def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     app = QApplication(sys.argv)
     app.setFont(QFont("Arial", 17))
-
-    # QSS 적용
     apply_qss(app, os.path.join(os.path.dirname(__file__), '..', 'assets', 'style', 'modern.qss'))
-
     auth = AuthDialog()
     if auth.exec_() == QDialog.Accepted:
         w = MainWindow(auth.login_user.text().strip())

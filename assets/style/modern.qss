@@ -209,6 +209,10 @@ QLabel {
     font-weight: 500;
 }
 
+
+
+
+
 /* ==== 버튼: 글로벌은 검정, 로그인/회원가입만 흰색 ==== */
 QPushButton, QDialogButtonBox QPushButton {
     background: #2563eb;
@@ -221,10 +225,34 @@ QPushButton, QDialogButtonBox QPushButton {
     min-height: 32px;
     max-height: 38px;
 }
+
+
+
 QPushButton:hover, QDialogButtonBox QPushButton:hover {
     background: #1d42a5;
     color: #fff;
 }
+
+
+/* === 플레이어 컨트롤러 버튼만 밝은 회색으로 덮어써라 === */
+QPushButton#shuffle, QPushButton#prev, QPushButton#playpause, QPushButton#next, QPushButton#repeat {
+    background: #f6f8fa !important;
+    color: #23272f !important;
+    border: none !important;
+    border-radius: 16px;
+    margin: 0 4px;
+    font-size: 23px;
+    min-width: 48px;
+    min-height: 48px;
+    max-width: 48px;
+    max-height: 48px;
+    padding: 0;
+}
+QPushButton#shuffle:hover, QPushButton#prev:hover, QPushButton#playpause:hover, QPushButton#next:hover, QPushButton#repeat:hover {
+    background: #e0e7ef !important;
+}
+
+
 QPushButton#btn_login, QDialogButtonBox QPushButton#btn_login,
 QPushButton#btn_register, QDialogButtonBox QPushButton#btn_register {
     color: #fff;
