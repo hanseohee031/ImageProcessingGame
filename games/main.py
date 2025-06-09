@@ -1,7 +1,9 @@
 # games/main.py
 
 import sys
-from PyQt5.QtCore import Qt
+import os
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -10,9 +12,9 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QWidget,
-    QDialog
+    QFrame,
+    QDialog          # ← 여기에 QDialog 추가
 )
-from PyQt5.QtGui import QFont
 from games.auth_dialog import AuthDialog
 
 class MainWindow(QMainWindow):
@@ -21,90 +23,139 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("🎵 Music Quest")
         self.resize(1000, 700)
 
-        # ── 상단 헤더 ──
-        header = QWidget()
+        # ── 전체 스타일시트 ──
+        self.setStyleSheet("""
+        QMainWindow {
+            background-color: #f5f7fa;
+        }
+        QFrame#header {
+            background-color: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        QLabel#username {
+            font-size: 18px;
+            color: #2f3e46;
+        }
+        QPushButton#logout {
+            background-color: transparent;
+            color: #e63946;
+            border: 1px solid #e63946;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        QPushButton#logout:hover {
+            background-color: #e63946;
+            color: white;
+        }
+        QFrame#sidebar {
+            background-color: #2a9d8f;
+        }
+        QPushButton#menu {
+            background-color: transparent;
+            color: #edf6f9;
+            border: none;
+            text-align: left;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        QPushButton#menu:hover {
+            background-color: #21867a;
+        }
+        QPushButton#menu:pressed {
+            background-color: #1b665c;
+        }
+        """)
+
+        # ── HEADER ──
+        header = QFrame()
+        header.setObjectName("header")
         hdr_lay = QHBoxLayout(header)
-        hdr_lay.setContentsMargins(0, 10, 0, 10)
+        hdr_lay.setContentsMargins(20, 10, 20, 10)
         hdr_lay.addStretch()
 
-        # 사용자명 레이블 (이후 재로그인 시 업데이트)
         self.name_label = QLabel(f"Hello, {username}")
+        self.name_label.setObjectName("username")
         name_font = QFont()
         name_font.setPointSize(18)
         self.name_label.setFont(name_font)
-        hdr_lay.addWidget(self.name_label, alignment=Qt.AlignCenter)
+        hdr_lay.addWidget(self.name_label)
 
-        # 로그아웃 버튼
         logout_btn = QPushButton("Logout")
+        logout_btn.setObjectName("logout")
         logout_font = QFont()
         logout_font.setPointSize(14)
         logout_btn.setFont(logout_font)
         logout_btn.clicked.connect(self._on_logout)
-        hdr_lay.addWidget(logout_btn, alignment=Qt.AlignCenter)
-
+        hdr_lay.addWidget(logout_btn)
         hdr_lay.addStretch()
 
-        # ── 사이드 메뉴 ──
-        menu = QWidget()
-        menu_lay = QVBoxLayout(menu)
-        menu_lay.setContentsMargins(50, 20, 0, 0)
-        menu_lay.setSpacing(20)
+        # ── SIDEBAR ──
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sb_lay = QVBoxLayout(sidebar)
+        sb_lay.setContentsMargins(0, 20, 0, 20)
+        sb_lay.setSpacing(15)
 
-        btn_my  = QPushButton("My Music")
-        btn_get = QPushButton("Get Music")
-        for btn in (btn_my, btn_get):
-            btn_font = QFont()
-            btn_font.setPointSize(16)
-            btn.setFont(btn_font)
-            btn.setFixedSize(200, 50)
-        menu_lay.addWidget(btn_my)
-        menu_lay.addWidget(btn_get)
-        menu_lay.addStretch()
+        for text in ("My Music", "Get Music"):
+            btn = QPushButton(text)
+            btn.setObjectName("menu")
+            icon_path = os.path.join(
+                os.path.dirname(__file__),
+                "..", "assets", "icons",
+                f"{text.lower().replace(' ', '_')}.png"
+            )
+            if os.path.exists(icon_path):
+                btn.setIcon(QIcon(icon_path))
+                btn.setIconSize(QSize(24, 24))
+            sb_lay.addWidget(btn)
 
-        # ── 메인 레이아웃 ──
+        sb_lay.addStretch()
+
+        # ── CENTRAL LAYOUT ──
         central = QWidget()
-        main_lay = QVBoxLayout(central)
+        main_lay = QHBoxLayout(central)
         main_lay.setContentsMargins(0, 0, 0, 0)
-        main_lay.addWidget(header)
-        main_lay.addWidget(menu, alignment=Qt.AlignLeft)
-        self.setCentralWidget(central)
+        main_lay.addWidget(sidebar, 1)
+
+        content = QWidget()
+        main_lay.addWidget(content, 4)
+
+        # ── ROOT LAYOUT ──
+        root = QWidget()
+        root_lay = QVBoxLayout(root)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.addWidget(header)
+        root_lay.addWidget(central)
+        self.setCentralWidget(root)
 
     def _on_logout(self):
-        """로그아웃 시, 창을 숨기고 다시 로그인 → 성공하면 사용자명 업데이트 후 재표시"""
         # 1) 창 숨기기
         self.hide()
-
-        # 2) 로그인 대화상자 재실행
+        # 2) 인증 다이얼로그 재실행
         auth = AuthDialog()
         if auth.exec_() == QDialog.Accepted:
-            # 3) 로그인 성공: 사용자명 갱신하고 창 다시 보이기
             new_user = auth.login_user.text().strip()
             self.name_label.setText(f"Hello, {new_user}")
             self.show()
         else:
-            # 4) 로그인 취소: 애플리케이션 종료
             QApplication.quit()
-
 
 def main():
     app = QApplication(sys.argv)
-
-    # 전역 기본 폰트 크기 설정
+    # 전역 기본 폰트 크기
     base_font = app.font()
     base_font.setPointSize(14)
     app.setFont(base_font)
 
-    # 인증 대화상자
     auth = AuthDialog()
     if auth.exec_() == QDialog.Accepted:
-        # 로그인 성공 시 메인 윈도우 띄우기
-        username = auth.login_user.text().strip()
-        window = MainWindow(username)
-        window.show()
+        user = auth.login_user.text().strip()
+        win = MainWindow(user)
+        win.show()
         sys.exit(app.exec_())
     else:
         sys.exit()
-
 
 if __name__ == "__main__":
     main()
