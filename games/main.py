@@ -13,6 +13,11 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from games.auth_dialog import AuthDialog
 from PyQt5.QtWidgets import QSlider, QStyle
 
+def keyPressEvent(self, event):
+    if event.key() == Qt.Key_Escape:
+        QApplication.quit()
+    else:
+        super().keyPressEvent(event)
 
 def ms_to_mmss(ms: int) -> str:
     s = ms // 1000
@@ -39,6 +44,7 @@ class ClickableSlider(QSlider):
 class MainWindow(QMainWindow):
     def __init__(self, username):
         super().__init__()
+        self.showFullScreen() 
         self.setWindowTitle("🎵 Music Quest")
         self.resize(1120, 720)
 
@@ -60,6 +66,19 @@ class MainWindow(QMainWindow):
         logout_btn.setFont(QFont("Arial", 14, QFont.Bold))
         logout_btn.clicked.connect(self._on_logout)
         hdr_l.addWidget(logout_btn)
+        exit_btn = QPushButton("EXIT")
+        exit_btn.setObjectName("exit")
+        exit_btn.setFont(QFont("Arial", 18, QFont.Bold))
+        exit_btn.setStyleSheet("""
+            QPushButton {
+                  border:2px solid #e53e3e; border-radius:8px;
+                  padding:6px 20px; background:white; color:#e53e3e;
+            }
+            QPushButton:hover { background:#fef2f2; }
+             """)
+        exit_btn.clicked.connect(QApplication.quit)
+        hdr_l.addWidget(exit_btn)
+
 
         # ── SIDEBAR ──
         sidebar = QFrame(objectName="sidebar")
@@ -93,6 +112,7 @@ class MainWindow(QMainWindow):
         self.list_widget.model().rowsMoved.connect(self._on_rows_moved)
         self._load_playlist()
         self.list_widget.itemClicked.connect(self.on_item_clicked)
+        self.list_widget.setMinimumWidth(100) 
         card_l.addWidget(self.list_widget)
         splitter.addWidget(track_card)
 
@@ -143,7 +163,7 @@ class MainWindow(QMainWindow):
         rcard_l.addLayout(ctrl_row, 1)
 
         splitter.addWidget(right_card)
-        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 3)
 
         mus_lay = QHBoxLayout(page_music)

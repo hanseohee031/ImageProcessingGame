@@ -34,8 +34,6 @@ class AuthDialog(QDialog):
         # --- 카드형 중앙 Wrapper ---
         wrapper = QWidget()
         wrapper.setObjectName("auth_card")
-        wrapper.setFixedWidth(380)
-        wrapper.setMinimumHeight(350)
 
         # --- 타이틀 ---
         title = QLabel("Welcome to Music Quest!")

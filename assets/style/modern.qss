@@ -145,9 +145,12 @@ QWidget#auth_card {
     background: #fff;
     border-radius: 14px;
     border: 1.3px solid #e3e6ea;
-    padding: 26px 28px 20px 28px;
-    margin: 16px 18px 12px 18px;
+    padding: 26px 24px 20px 24px;
+    margin: 0px 0px 0px 0px;
+    min-width: 360px;
+    max-width: 520px;
 }
+
 
 /* ==== 다이얼로그 타이틀 ==== */
 QLabel#dialog_title {
