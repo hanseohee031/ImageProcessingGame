@@ -27,7 +27,7 @@ def get_db_connection():
 class AuthDialog(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🎶 Music Quest")
+        self.setWindowTitle("2025-1 영상처리프로그래밍 프로젝트")
         self.resize(470, 420)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
@@ -36,7 +36,7 @@ class AuthDialog(QDialog):
         wrapper.setObjectName("auth_card")
 
         # --- 타이틀 ---
-        title = QLabel("Welcome to Music Quest!")
+        title = QLabel("Jyaenugu the Rapper")
         title.setObjectName("dialog_title")
         title.setAlignment(Qt.AlignCenter)
 
@@ -66,8 +66,8 @@ class AuthDialog(QDialog):
         self.login_pwd  = QLineEdit()
         self.login_pwd.setEchoMode(QLineEdit.Password)
         self.login_pwd.setPlaceholderText("Password")
-        form.addRow("User:", self.login_user)
-        form.addRow("Pass:", self.login_pwd)
+        form.addRow("Username:", self.login_user)
+        form.addRow("Password:", self.login_pwd)
 
         btn_box = QDialogButtonBox()
         self.btn_login = QPushButton("Login")
