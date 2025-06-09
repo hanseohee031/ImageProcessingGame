@@ -1,16 +1,15 @@
-# games/main.py
-
 import sys
 import os
 import random
-from PyQt5.QtCore import Qt, QSize, QUrl
+from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QWidget, QFrame,
     QStackedWidget, QListWidget, QListWidgetItem,
-    QTextBrowser, QSlider, QDialog
+    QTextBrowser, QSlider, QSplitter, QDialog
 )
+from qt_material import apply_stylesheet
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from games.auth_dialog import AuthDialog
 
@@ -26,80 +25,80 @@ class MainWindow(QMainWindow):
 
         # 플레이리스트 상태
         self.playlist = []
+        self.title_to_fn = {}
         self.current_index = -1
         self.shuffle = False
         self.repeat_mode = 0  # 0=off,1=all,2=one
 
-        # ── HEADER ──
+        # HEADER
         header = QFrame(objectName="header")
         hdr_l = QHBoxLayout(header)
         hdr_l.setContentsMargins(20, 10, 20, 10)
         hdr_l.addStretch()
         self.name_label = QLabel(f"Hello, {username}", objectName="username")
-        header_font = QFont("", 20)
-        self.name_label.setFont(header_font)
+        self.name_label.setFont(QFont("Arial", 24, QFont.Bold))
         hdr_l.addWidget(self.name_label)
         logout_btn = QPushButton("Logout", objectName="logout")
-        logout_btn.setFont(QFont("", 16))
+        logout_btn.setFont(QFont("Arial", 18))
         logout_btn.clicked.connect(self._on_logout)
         hdr_l.addWidget(logout_btn)
         hdr_l.addStretch()
 
-        # ── SIDEBAR ──
+        # SIDEBAR
         sidebar = QFrame(objectName="sidebar")
         sb_l = QVBoxLayout(sidebar)
         sb_l.setContentsMargins(0, 20, 0, 20)
-        sb_l.setSpacing(15)
-        self.btn_my  = QPushButton("My Music", objectName="menu")
+        sb_l.setSpacing(20)
+        self.btn_my = QPushButton("My Music", objectName="menu")
         self.btn_get = QPushButton("Get Music", objectName="menu")
         for btn in (self.btn_my, self.btn_get):
-            btn.setFont(QFont("", 18))
+            btn.setFont(QFont("Arial", 20))
             btn.setFixedSize(200, 60)
             sb_l.addWidget(btn)
         sb_l.addStretch()
 
-        # ── CONTENT STACK ──
+        # CONTENT STACK
         self.stack = QStackedWidget()
 
-        # ▶ Page 0: My Music
+        # Page 0: My Music
         page_music = QWidget()
-        mus_lay = QHBoxLayout(page_music)
-        mus_lay.setContentsMargins(20, 20, 20, 20)
-        mus_lay.setSpacing(30)
+        splitter = QSplitter(Qt.Horizontal, page_music)
 
-        # Track list
+        # 좌측: 트랙 리스트 (드래그 & 드롭)
         self.list_widget = QListWidget()
-        self.list_widget.setFont(QFont("", 16))
+        self.list_widget.setFont(QFont("Arial", 24))
+        self.list_widget.setDragDropMode(QListWidget.InternalMove)
+        self.list_widget.setDefaultDropAction(Qt.MoveAction)
+        self.list_widget.setAcceptDrops(True)
+        self.list_widget.setDropIndicatorShown(True)
+        self.list_widget.model().rowsMoved.connect(self._on_rows_moved)
         self._load_playlist()
         self.list_widget.itemClicked.connect(self.on_item_clicked)
-        mus_lay.addWidget(self.list_widget, 1)
+        splitter.addWidget(self.list_widget)
 
-        # Lyrics + controls
-        right = QVBoxLayout()
+        # 우측: 가사 + 컨트롤
+        content = QWidget()
+        right = QVBoxLayout(content)
         self.lyrics = QTextBrowser()
-        self.lyrics.setFont(QFont("Monospace", 14))
+        self.lyrics.setFont(QFont("Arial", 18))
         right.addWidget(self.lyrics, 5)
 
         # Controls row 1
         ctrl_top = QHBoxLayout()
         btns = {}
-        for name, txt in [
-            ('shuffle', '🔀'),
-            ('prev',    '⏮️'),
-            ('play',    '▶️'),
-            ('pause',   '⏸️'),
-            ('next',    '⏭️'),
-            ('repeat',  '🔁'),
+        for name, ico in [
+            ('shuffle', '🔀'), ('prev', '⏮️'), ('play', '▶️'),
+            ('pause', '⏸️'), ('next', '⏭️'), ('repeat', '🔁')
         ]:
-            btn = QPushButton(txt)
-            btn.setFixedSize(50, 50)
-            btn.setFont(QFont("", 18))
+            btn = QPushButton(ico)
+            btn.setFixedSize(80, 80)
+            btn.setFont(QFont("Arial", 28, QFont.Bold))
             btns[name] = btn
             ctrl_top.addWidget(btn)
-        self.btn_shuffle, self.btn_prev, self.btn_play, \
-        self.btn_pause, self.btn_next, self.btn_repeat = (
+        (self.btn_shuffle, self.btn_prev, self.btn_play,
+         self.btn_pause, self.btn_next, self.btn_repeat) = (
             btns['shuffle'], btns['prev'], btns['play'],
-            btns['pause'],   btns['next'], btns['repeat']
+            btns['pause'], btns['next'], btns['repeat']
         )
         self.btn_play.clicked.connect(self.player_play)
         self.btn_pause.clicked.connect(self.player_pause)
@@ -110,10 +109,13 @@ class MainWindow(QMainWindow):
 
         # Controls row 2: slider + time
         ctrl_bot = QHBoxLayout()
-        self.slider   = QSlider(Qt.Horizontal)
-        self.slider.setStyleSheet("QSlider::groove:horizontal{height:8px;} QSlider::handle:horizontal{width:16px;}")
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setStyleSheet(
+            "QSlider::groove:horizontal{height:15px;} "
+            "QSlider::handle:horizontal{width:25px;}"
+        )
         self.time_lbl = QLabel("00:00 / 00:00")
-        self.time_lbl.setFont(QFont("", 16))
+        self.time_lbl.setFont(QFont("Arial", 18))
         self.slider.setRange(0, 0)
         self.slider.sliderMoved.connect(lambda p: self.player.setPosition(p))
         ctrl_bot.addWidget(self.slider, 1)
@@ -121,23 +123,30 @@ class MainWindow(QMainWindow):
         right.addLayout(ctrl_top, 1)
         right.addLayout(ctrl_bot, 1)
 
-        mus_lay.addLayout(right, 3)
+        splitter.addWidget(content)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+
+        mus_lay = QHBoxLayout(page_music)
+        mus_lay.setContentsMargins(20, 20, 20, 20)
+        mus_lay.setSpacing(30)
+        mus_lay.addWidget(splitter)
         self.stack.addWidget(page_music)
 
-        # ▶ Page 1: Get Music
+        # Page 1: Get Music
         page_game = QWidget()
         gl = QVBoxLayout(page_game)
         gl.setAlignment(Qt.AlignCenter)
         lbl = QLabel("🎮 Game Starting...")
-        lbl.setFont(QFont("", 24))
+        lbl.setFont(QFont("Arial", 26))
         gl.addWidget(lbl)
         self.stack.addWidget(page_game)
 
-        # Sidebar buttons
+        # Sidebar 버튼 연결
         self.btn_my.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.btn_get.clicked.connect(self._on_get_music)
 
-        # ── ROOT LAYOUT ──
+        # ROOT LAYOUT
         central = QWidget()
         root_l = QHBoxLayout(central)
         root_l.setContentsMargins(0, 0, 0, 0)
@@ -151,7 +160,7 @@ class MainWindow(QMainWindow):
         outer_l.addWidget(central)
         self.setCentralWidget(outer)
 
-        # ── PLAYER SETUP ──
+        # PLAYER SETUP
         self.player = QMediaPlayer()
         self.player.positionChanged.connect(self._on_position_changed)
         self.player.durationChanged.connect(self._on_duration_changed)
@@ -163,8 +172,15 @@ class MainWindow(QMainWindow):
             if fn.lower().endswith(('.mp3', '.wav')):
                 title = os.path.splitext(fn)[0]
                 self.playlist.append(fn)
-                item = QListWidgetItem(title)
-                self.list_widget.addItem(item)
+                self.title_to_fn[title] = fn
+                self.list_widget.addItem(QListWidgetItem(title))
+
+    def _on_rows_moved(self, parent, start, end, dest, row):
+        new_list = []
+        for i in range(self.list_widget.count()):
+            t = self.list_widget.item(i).text()
+            new_list.append(self.title_to_fn[t])
+        self.playlist = new_list
 
     def on_item_clicked(self, item):
         idx = self.list_widget.row(item)
@@ -178,13 +194,17 @@ class MainWindow(QMainWindow):
         path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'music', fn)
         self.player.setMedia(QMediaContent(QUrl.fromLocalFile(path)))
         self.player.play()
-        # load lyrics
         title = os.path.splitext(fn)[0]
-        lyr = os.path.join(os.path.dirname(__file__), '..', 'assets', 'lyrics', f"{title}.txt")
-        self.lyrics.setText(open(lyr, encoding='utf-8').read() if os.path.exists(lyr) else "(No lyrics)")
+        lyr_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'lyrics', f"{title}.txt")
+        self.lyrics.setText(
+            open(lyr_path, encoding='utf-8').read() if os.path.exists(lyr_path) else "(No lyrics)"
+        )
 
-    def player_play(self):  self.player.play()
-    def player_pause(self): self.player.pause()
+    def player_play(self):
+        self.player.play()
+
+    def player_pause(self):
+        self.player.pause()
 
     def next_track(self):
         if self.shuffle:
@@ -207,6 +227,7 @@ class MainWindow(QMainWindow):
         self.btn_shuffle.setStyleSheet("background:#edde73;" if self.shuffle else "")
 
     def toggle_repeat(self):
+        # 반복 모드: off->all->one
         self.repeat_mode = (self.repeat_mode + 1) % 3
         icons = {0: "🔁", 1: "🔁", 2: "🔂"}
         self.btn_repeat.setText(icons[self.repeat_mode])
@@ -226,9 +247,8 @@ class MainWindow(QMainWindow):
                 self.play_track(self.current_index)
             elif self.repeat_mode == 1:
                 self.next_track()
-            else:
-                if self.current_index < len(self.playlist) - 1:
-                    self.next_track()
+            elif self.current_index < len(self.playlist) - 1:
+                self.next_track()
 
     def _update_time_label(self):
         p = self.player.position()
@@ -236,9 +256,7 @@ class MainWindow(QMainWindow):
         self.time_lbl.setText(f"{ms_to_mmss(p)} / {ms_to_mmss(d)}")
 
     def _on_get_music(self):
-        # stop any playing music
         self.player.stop()
-        # switch to get-music page
         self.stack.setCurrentIndex(1)
 
     def _on_logout(self):
@@ -253,17 +271,24 @@ class MainWindow(QMainWindow):
         else:
             QApplication.quit()
 
+
 def main():
+    # 고DPI 스케일링 활성화
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     app = QApplication(sys.argv)
-    font = app.font(); font.setPointSize(14); app.setFont(font)
+
+    # Light material theme
+    apply_stylesheet(app, theme='light_blue.xml')
+
+    # 전역 폰트: Arial
+    base_font = QFont("Arial", 20)
+    app.setFont(base_font)
 
     auth = AuthDialog()
     if auth.exec_() == QDialog.Accepted:
         w = MainWindow(auth.login_user.text().strip())
         w.show()
         sys.exit(app.exec_())
-    else:
-        sys.exit()
 
 if __name__ == "__main__":
     main()

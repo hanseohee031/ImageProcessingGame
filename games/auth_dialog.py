@@ -1,6 +1,8 @@
-# games/auth_dialog.py
-import os, sqlite3, hashlib
+import os
+import sqlite3
+import hashlib
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QFormLayout, QLineEdit,
     QPushButton, QVBoxLayout, QLabel, QDialogButtonBox,
@@ -28,39 +30,35 @@ class AuthDialog(QDialog):
         self.resize(500, 420)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
-        # 그림자
+        # 그림자 효과
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(25)
         shadow.setOffset(0, 0)
         shadow.setColor(Qt.black)
         self.setGraphicsEffect(shadow)
 
-        # 탭
+        # 탭 위젯
         tabs = QTabWidget()
-        tabs.setStyleSheet("QTabBar::tab { font-size: 20px; padding: 12px 30px; }")
-        tabs.addTab(self._create_login_tab(),   "Login")
-        tabs.addTab(self._create_signup_tab(),  "Sign Up")
+        tabs.setFont(QFont("Arial", 18, QFont.Bold))
+        tabs.setStyleSheet("QTabBar::tab { padding: 12px 30px; }")
+        tabs.addTab(self._create_login_tab(),  "Login")
+        tabs.addTab(self._create_signup_tab(), "Sign Up")
         tabs.setTabPosition(QTabWidget.North)
 
-        # 전체 레이아웃
+        # 타이틀
         title = QLabel("Welcome to Music Quest!")
         title.setAlignment(Qt.AlignCenter)
-        title_font = title.font()
-        title_font.setPointSize(28)
-        title_font.setBold(True)
-        title.setFont(title_font)
+        title.setFont(QFont("Arial", 28, QFont.Bold))
 
         main_lay = QVBoxLayout(self)
         main_lay.addWidget(title)
         main_lay.addWidget(tabs)
 
-        # 스타일시트: 입력창·버튼 크기 키우기
+        # 전반적 스타일시트
         self.setStyleSheet("""
         QDialog {
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 #ffffff, stop:1 #f0f0f0
-            );
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #ffffff, stop:1 #f0f0f0);
             border-radius: 10px;
         }
         QLabel {
@@ -131,7 +129,7 @@ class AuthDialog(QDialog):
         self.sign_pwd2 = QLineEdit()
         self.sign_pwd2.setEchoMode(QLineEdit.Password)
         self.sign_pwd2.setPlaceholderText("🔒 Confirm")
-        form.addRow("User:",    self.sign_user)
+        form.addRow("User:",     self.sign_user)
         form.addRow("Password:", self.sign_pwd)
         form.addRow("Confirm:",  self.sign_pwd2)
 
@@ -152,11 +150,13 @@ class AuthDialog(QDialog):
         if not u or not p:
             QMessageBox.warning(self, "Error", "Both fields are required.")
             return
+
         conn = get_db_connection()
         cur  = conn.cursor()
         cur.execute("SELECT password_hash FROM users WHERE username = ?", (u,))
         row = cur.fetchone()
         conn.close()
+
         if row and row[0] == hashlib.sha256(p.encode()).hexdigest():
             self.accept()
         else:
@@ -172,15 +172,24 @@ class AuthDialog(QDialog):
         if p != p2:
             QMessageBox.warning(self, "Error", "Passwords do not match.")
             return
+
         h = hashlib.sha256(p.encode()).hexdigest()
         try:
             conn = get_db_connection()
             cur  = conn.cursor()
-            cur.execute("INSERT INTO users(username,password_hash) VALUES(?,?)", (u, h))
+            cur.execute(
+                "INSERT INTO users(username,password_hash) VALUES(?,?)",
+                (u, h)
+            )
             conn.commit()
             conn.close()
         except sqlite3.IntegrityError:
             QMessageBox.critical(self, "Error", "Username already exists.")
             return
-        QMessageBox.information(self, "OK", "Registration successful.\nPlease switch to Login tab.")
+
+        QMessageBox.information(
+            self, "OK",
+            "Registration successful.\nPlease switch to Login tab."
+        )
+        # 회원가입 후 로그인 탭으로 이동
         self.findChild(QTabWidget).setCurrentIndex(0)
