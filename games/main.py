@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from games.auth_dialog import AuthDialog
+from PyQt5.QtWidgets import QSlider, QStyle
+
 
 def ms_to_mmss(ms: int) -> str:
     s = ms // 1000
@@ -20,6 +22,19 @@ def apply_qss(app, qss_path):
     with open(qss_path, "r") as f:
         style = f.read()
     app.setStyleSheet(style)
+
+class ClickableSlider(QSlider):
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            val = QStyle.sliderValueFromPosition(
+                self.minimum(), self.maximum(),
+                event.x() if self.orientation() == Qt.Horizontal else event.y(),
+                self.width() if self.orientation() == Qt.Horizontal else self.height()
+            )
+            self.setValue(val)
+            self.sliderMoved.emit(val)
+        super().mousePressEvent(event)
+
 
 class MainWindow(QMainWindow):
     def __init__(self, username):
@@ -92,16 +107,17 @@ class MainWindow(QMainWindow):
         ctrl_row = QHBoxLayout()
         btns = {}
         for name, ico in [
-            ('shuffle', '🔀'), ('prev', '⏮️'), ('play', '▶️'),
-            ('pause', '⏸️'), ('next', '⏭️'), ('repeat', '🔁')
-        ]:
+              ('shuffle', '🔀'), ('prev', '⏮️'), ('play', '▶️'),
+              ('pause', '⏸️'), ('next', '⏭️'), ('repeat', '🔁')
+              ]:
             btn = QPushButton(ico)
             btn.setObjectName(name)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setFixedSize(54, 54)
-            btn.setFont(QFont("Arial", 23, QFont.Bold))
+            btn.setFixedSize(54, 54)   # <-- 반드시 한 줄로 크기 통일!
+            btn.setFont(QFont("Arial", 26, QFont.Bold))
             btns[name] = btn
-            ctrl_row.addWidget(btn)
+            ctrl_row.addWidget(btn)	
+
         (self.btn_shuffle, self.btn_prev, self.btn_play,
          self.btn_pause, self.btn_next, self.btn_repeat) = (
             btns['shuffle'], btns['prev'], btns['play'],
@@ -115,7 +131,8 @@ class MainWindow(QMainWindow):
         self.btn_repeat.clicked.connect(self.toggle_repeat)
 
         ctrl_row.addSpacing(20)
-        self.slider = QSlider(Qt.Horizontal)
+
+        self.slider = ClickableSlider(Qt.Horizontal)
         self.slider.setObjectName("slider")
         self.slider.setMinimumWidth(180)
         self.time_lbl = QLabel("00:00 / 00:00", objectName="time")
@@ -202,6 +219,17 @@ class MainWindow(QMainWindow):
             open(lyr_path, encoding='utf-8').read() if os.path.exists(lyr_path) else "(No lyrics)"
         )
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Left:
+            pos = self.player.position() - 10000
+            self.player.setPosition(max(pos, 0))
+        elif event.key() == Qt.Key_Right:
+            dur = self.player.duration()
+            pos = self.player.position() + 10000
+            self.player.setPosition(min(pos, dur))
+        else:
+            super().keyPressEvent(event)
+
     def player_play(self):
         self.player.play()
 
@@ -274,6 +302,10 @@ class MainWindow(QMainWindow):
             self.show()
         else:
             QApplication.quit()
+
+
+
+
 
 def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)

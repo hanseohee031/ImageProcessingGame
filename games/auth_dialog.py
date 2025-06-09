@@ -1,3 +1,4 @@
+# games/auth_dialog.py
 import os
 import sqlite3
 import hashlib
@@ -6,7 +7,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QFormLayout, QLineEdit,
     QPushButton, QVBoxLayout, QLabel, QDialogButtonBox,
-    QMessageBox, QGraphicsDropShadowEffect
+    QMessageBox
 )
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'users.db')
@@ -27,70 +28,35 @@ class AuthDialog(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("🎶 Music Quest")
-        self.resize(500, 420)
+        self.resize(470, 420)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
-        # 그림자 효과
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(25)
-        shadow.setOffset(0, 0)
-        shadow.setColor(Qt.black)
-        self.setGraphicsEffect(shadow)
+        # --- 카드형 중앙 Wrapper ---
+        wrapper = QWidget()
+        wrapper.setObjectName("auth_card")
+        wrapper.setFixedWidth(380)
+        wrapper.setMinimumHeight(350)
 
-        # 탭 위젯
+        # --- 타이틀 ---
+        title = QLabel("Welcome to Music Quest!")
+        title.setObjectName("dialog_title")
+        title.setAlignment(Qt.AlignCenter)
+
+        # --- 탭 위젯 ---
         tabs = QTabWidget()
-        tabs.setFont(QFont("Arial", 18, QFont.Bold))
-        tabs.setStyleSheet("QTabBar::tab { padding: 12px 30px; }")
+        tabs.setFont(QFont("Arial", 16, QFont.Bold))
         tabs.addTab(self._create_login_tab(),  "Login")
         tabs.addTab(self._create_signup_tab(), "Sign Up")
-        tabs.setTabPosition(QTabWidget.North)
 
-        # 타이틀
-        title = QLabel("Welcome to Music Quest!")
-        title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Arial", 28, QFont.Bold))
+        vbox = QVBoxLayout(wrapper)
+        vbox.addWidget(title)
+        vbox.addSpacing(8)
+        vbox.addWidget(tabs)
 
         main_lay = QVBoxLayout(self)
-        main_lay.addWidget(title)
-        main_lay.addWidget(tabs)
-
-        # 전반적 스타일시트
-        self.setStyleSheet("""
-        QDialog {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                       stop:0 #ffffff, stop:1 #f0f0f0);
-            border-radius: 10px;
-        }
-        QLabel {
-            font-size: 20px;
-        }
-        QLineEdit {
-            padding: 12px;
-            border: 1px solid #bbb;
-            border-radius: 5px;
-            font-size: 20px;
-        }
-        QPushButton {
-            min-width: 120px;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            font-size: 20px;
-            color: white;
-        }
-        QPushButton#btn_login {
-            background-color: #28a745;
-        }
-        QPushButton#btn_login:hover {
-            background-color: #218838;
-        }
-        QPushButton#btn_register {
-            background-color: #dc3545;
-        }
-        QPushButton#btn_register:hover {
-            background-color: #c82333;
-        }
-        """)
+        main_lay.addStretch(2)
+        main_lay.addWidget(wrapper, alignment=Qt.AlignCenter)
+        main_lay.addStretch(1)
 
     def _create_login_tab(self):
         w = QWidget()
@@ -98,10 +64,10 @@ class AuthDialog(QDialog):
         form.setLabelAlignment(Qt.AlignRight)
 
         self.login_user = QLineEdit()
-        self.login_user.setPlaceholderText("👤 Username")
+        self.login_user.setPlaceholderText("Username")
         self.login_pwd  = QLineEdit()
         self.login_pwd.setEchoMode(QLineEdit.Password)
-        self.login_pwd.setPlaceholderText("🔒 Password")
+        self.login_pwd.setPlaceholderText("Password")
         form.addRow("User:", self.login_user)
         form.addRow("Pass:", self.login_pwd)
 
@@ -112,8 +78,10 @@ class AuthDialog(QDialog):
         self.btn_login.clicked.connect(self._do_login)
 
         lay = QVBoxLayout(w)
+        lay.addSpacing(16)
         lay.addLayout(form)
         lay.addWidget(btn_box, alignment=Qt.AlignCenter)
+        lay.addStretch(1)
         return w
 
     def _create_signup_tab(self):
@@ -122,13 +90,13 @@ class AuthDialog(QDialog):
         form.setLabelAlignment(Qt.AlignRight)
 
         self.sign_user = QLineEdit()
-        self.sign_user.setPlaceholderText("👤 Username")
+        self.sign_user.setPlaceholderText("Username")
         self.sign_pwd  = QLineEdit()
         self.sign_pwd.setEchoMode(QLineEdit.Password)
-        self.sign_pwd.setPlaceholderText("🔒 Password")
+        self.sign_pwd.setPlaceholderText("Password")
         self.sign_pwd2 = QLineEdit()
         self.sign_pwd2.setEchoMode(QLineEdit.Password)
-        self.sign_pwd2.setPlaceholderText("🔒 Confirm")
+        self.sign_pwd2.setPlaceholderText("Confirm Password")
         form.addRow("User:",     self.sign_user)
         form.addRow("Password:", self.sign_pwd)
         form.addRow("Confirm:",  self.sign_pwd2)
@@ -140,8 +108,10 @@ class AuthDialog(QDialog):
         self.btn_register.clicked.connect(self._do_signup)
 
         lay = QVBoxLayout(w)
+        lay.addSpacing(16)
         lay.addLayout(form)
         lay.addWidget(btn_box, alignment=Qt.AlignCenter)
+        lay.addStretch(1)
         return w
 
     def _do_login(self):
@@ -160,7 +130,7 @@ class AuthDialog(QDialog):
         if row and row[0] == hashlib.sha256(p.encode()).hexdigest():
             self.accept()
         else:
-            QMessageBox.critical(self, "Failed", "Invalid credentials.")
+            QMessageBox.critical(self, "Failed", "Invalid username or password.")
 
     def _do_signup(self):
         u  = self.sign_user.text().strip()
