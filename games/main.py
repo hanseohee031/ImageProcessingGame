@@ -7,10 +7,12 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QWidget, QFrame,
     QStackedWidget, QListWidget, QListWidgetItem,
-    QTextBrowser, QSlider, QSplitter, QDialog, QStyle
+    QTextBrowser, QSlider, QSplitter, QDialog, QStyle, QMessageBox
 )
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from games.auth_dialog import AuthDialog
+from games.get_games import GetGamesWidget
+import importlib.util
 
 def ms_to_mmss(ms: int) -> str:
     s = ms // 1000
@@ -78,8 +80,8 @@ class MainWindow(QMainWindow):
         sb_l.setSpacing(24)
         self.btn_my = QPushButton("MY MUSIC", objectName="menu")
         self.btn_get = QPushButton("GET MUSIC", objectName="menu")
-        for btn in (self.btn_my, self.btn_get):
-            sb_l.addWidget(btn)
+        sb_l.addWidget(self.btn_my)
+        sb_l.addWidget(self.btn_get)
         sb_l.addStretch()
 
         # ── CONTENT STACK ──
@@ -137,7 +139,6 @@ class MainWindow(QMainWindow):
         self.btn_playpause.setFont(QFont("Arial", 26, QFont.Bold))
         self.btn_playpause.clicked.connect(self.toggle_play_pause)
 
-        # 컨트롤러 버튼 순서! (중앙에 플레이/정지 토글)
         ctrl_row.addWidget(btns['shuffle'])
         ctrl_row.addWidget(btns['prev'])
         ctrl_row.addWidget(self.btn_playpause)
@@ -173,20 +174,19 @@ class MainWindow(QMainWindow):
         mus_lay.setContentsMargins(18, 18, 18, 18)
         mus_lay.setSpacing(24)
         mus_lay.addWidget(splitter)
+        page_music.setLayout(mus_lay)
         self.stack.addWidget(page_music)
 
-        # ▶ Page 1: Get Music
-        page_game = QWidget()
-        gl = QVBoxLayout(page_game)
-        gl.setAlignment(Qt.AlignCenter)
-        lbl = QLabel("🎮 Game Starting...")
-        lbl.setFont(QFont("Arial", 22, QFont.Bold))
-        gl.addWidget(lbl)
-        self.stack.addWidget(page_game)
+        # ▶ Page 1: Get Music (게임 목록 위젯)
+        self.page_get_games = GetGamesWidget(
+            "assets/music",
+            on_game_selected=self.open_game_page
+        )
+        self.stack.addWidget(self.page_get_games)
 
         # Sidebar 버튼 연결
         self.btn_my.clicked.connect(lambda: self.stack.setCurrentIndex(0))
-        self.btn_get.clicked.connect(self._on_get_music)
+        self.btn_get.clicked.connect(lambda: self.stack.setCurrentIndex(1))
 
         # ── ROOT LAYOUT ──
         central = QWidget()
@@ -208,6 +208,28 @@ class MainWindow(QMainWindow):
         self.player.durationChanged.connect(self._on_duration_changed)
         self.player.mediaStatusChanged.connect(self._on_media_status)
         self.player.stateChanged.connect(self._on_player_state_changed)
+
+    def open_game_page(self, game_title):
+        # games/누의공과.py, games/Hallym.py 처럼 파일명을 동적으로 import
+        module_name = f"games.{game_title}"
+        file_path = os.path.join(os.path.dirname(__file__), f"{game_title}.py")
+        if not os.path.exists(file_path):
+            QMessageBox.information(self, "안내", f"'{game_title}' 게임은 아직 준비중입니다.")
+            return
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if spec is None:
+            QMessageBox.critical(self, "에러", f"게임 '{game_title}' 모듈을 불러올 수 없습니다.")
+            return
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+            # 클래스명은 파일명과 동일하게, 단 첫글자만 대문자로(관례상)
+            # 예: 누의공과 → 누의공과, Hallym → Hallym
+            cls = getattr(module, game_title)
+            self.game_window = cls()  # __init__에서 게임창 띄우도록 만들기!
+            self.game_window.show()
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"게임 실행 중 오류:\n{e}")
 
     def _load_playlist(self):
         music_dir = os.path.join(os.path.dirname(__file__), '..', 'assets', 'music')
@@ -258,14 +280,12 @@ class MainWindow(QMainWindow):
         else:
             super().keyPressEvent(event)
 
-    # ▶️⏸️ 토글
     def toggle_play_pause(self):
         if self.player.state() == QMediaPlayer.PlayingState:
             self.player.pause()
         else:
             self.player.play()
 
-    # 플레이어 상태 바뀔 때마다 버튼 아이콘 자동 갱신
     def _on_player_state_changed(self, state):
         if state == QMediaPlayer.PlayingState:
             self.btn_playpause.setText("⏸️")
@@ -322,10 +342,6 @@ class MainWindow(QMainWindow):
         p = self.player.position()
         d = self.player.duration()
         self.time_lbl.setText(f"{ms_to_mmss(p)} / {ms_to_mmss(d)}")
-
-    def _on_get_music(self):
-        self.player.stop()
-        self.stack.setCurrentIndex(1)
 
     def _on_logout(self):
         self.player.stop()
