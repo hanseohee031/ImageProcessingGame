@@ -18,9 +18,6 @@
 ---
 
 ## 화면 캡쳐
-![프로그램 실행화면](./image/login.png)
-![프로그램 실행화면](./image/signup.png)
-![프로그램 실행화면](./image/main.png)
 ![프로그램 실행화면](./image/music.png)
 
 
