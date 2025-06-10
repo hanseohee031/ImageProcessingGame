@@ -10,9 +10,8 @@ from PyQt5.QtWidgets import (
     QTextBrowser, QSlider, QSplitter, QDialog, QStyle, QMessageBox
 )
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from games.auth_dialog import AuthDialog
-from games.get_games import GetGamesWidget
-import importlib.util
+from music.auth_dialog import AuthDialog  # 경로에 따라 조정
+# games.get_games, importlib 등 삭제
 
 def ms_to_mmss(ms: int) -> str:
     s = ms // 1000
@@ -38,7 +37,6 @@ class ClickableSlider(QSlider):
 class MainWindow(QMainWindow):
     def __init__(self, username):
         super().__init__()
-        self.showFullScreen()
         self.setWindowTitle("🎵 Music Quest")
         self.resize(1120, 720)
 
@@ -79,9 +77,7 @@ class MainWindow(QMainWindow):
         sb_l.setContentsMargins(0, 30, 0, 30)
         sb_l.setSpacing(24)
         self.btn_my = QPushButton("MY MUSIC", objectName="menu")
-        self.btn_get = QPushButton("GET MUSIC", objectName="menu")
         sb_l.addWidget(self.btn_my)
-        sb_l.addWidget(self.btn_get)
         sb_l.addStretch()
 
         # ── CONTENT STACK ──
@@ -177,16 +173,8 @@ class MainWindow(QMainWindow):
         page_music.setLayout(mus_lay)
         self.stack.addWidget(page_music)
 
-        # ▶ Page 1: Get Music (게임 목록 위젯)
-        self.page_get_games = GetGamesWidget(
-            "assets/music",
-            on_game_selected=self.open_game_page
-        )
-        self.stack.addWidget(self.page_get_games)
-
-        # Sidebar 버튼 연결
+        # ── 버튼 연결 ──
         self.btn_my.clicked.connect(lambda: self.stack.setCurrentIndex(0))
-        self.btn_get.clicked.connect(lambda: self.stack.setCurrentIndex(1))
 
         # ── ROOT LAYOUT ──
         central = QWidget()
@@ -208,28 +196,6 @@ class MainWindow(QMainWindow):
         self.player.durationChanged.connect(self._on_duration_changed)
         self.player.mediaStatusChanged.connect(self._on_media_status)
         self.player.stateChanged.connect(self._on_player_state_changed)
-
-    def open_game_page(self, game_title):
-        # games/누의공과.py, games/Hallym.py 처럼 파일명을 동적으로 import
-        module_name = f"games.{game_title}"
-        file_path = os.path.join(os.path.dirname(__file__), f"{game_title}.py")
-        if not os.path.exists(file_path):
-            QMessageBox.information(self, "안내", f"'{game_title}' 게임은 아직 준비중입니다.")
-            return
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        if spec is None:
-            QMessageBox.critical(self, "에러", f"게임 '{game_title}' 모듈을 불러올 수 없습니다.")
-            return
-        module = importlib.util.module_from_spec(spec)
-        try:
-            spec.loader.exec_module(module)
-            # 클래스명은 파일명과 동일하게, 단 첫글자만 대문자로(관례상)
-            # 예: 누의공과 → 누의공과, Hallym → Hallym
-            cls = getattr(module, game_title)
-            self.game_window = cls()  # __init__에서 게임창 띄우도록 만들기!
-            self.game_window.show()
-        except Exception as e:
-            QMessageBox.critical(self, "에러", f"게임 실행 중 오류:\n{e}")
 
     def _load_playlist(self):
         music_dir = os.path.join(os.path.dirname(__file__), '..', 'assets', 'music')
@@ -354,6 +320,7 @@ class MainWindow(QMainWindow):
             self.show()
         else:
             QApplication.quit()
+
 
 def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
